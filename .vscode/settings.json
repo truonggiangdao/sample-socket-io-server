@@ -1,0 +1,9 @@
+{
+    "editor.tabSize": 2,
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ],
+    "appService.deploySubpath": "server",
+    "appService.defaultWebAppToDeploy": "None"
+}
