@@ -7,6 +7,14 @@ const io = socket(server);
 
 const rooms = {};
 
+app.get('/', (req, res) => {
+    return res.send('Welcome to Success Socket.IO');
+});
+
+app.get('/check', (req, res) => {
+    return res.send('Look ok!');
+});
+
 io.on("connection", socket => {
   console.log("Connected")
     socket.on("join room", roomID => {
@@ -42,9 +50,6 @@ io.on("connection", socket => {
     });
 });
 
-server.get('/check', (req, res) => {
-    res.send('Yes!')
-});
-
 // Serve the website using Express
 server.listen(process.env.PORT);
+// server.listen(9999);
