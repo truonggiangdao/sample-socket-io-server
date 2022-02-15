@@ -42,5 +42,9 @@ io.on("connection", socket => {
     });
 });
 
+server.get('/check', (req, res) => {
+    res.send('Yes!')
+});
 
-server.listen(9000, () => console.log('server is running on port 9000'));
+// Serve the website using Express
+server.listen(process.env.PORT);
