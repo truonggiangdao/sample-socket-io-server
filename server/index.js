@@ -1,14 +1,31 @@
+const compression = require('compression');
 const express = require("express");
 const http = require("http");
 const app = express();
+var cors = require('cors')
 const server = http.createServer(app);
 const socket = require("socket.io");
-const io = socket(server);
+const io = socket(server, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    }
+});
 
-const rooms = {};
+const local = false;
 
+
+const users = {};
+
+app.use(compression());
+
+app.options('*', cors());
+var indexFile = 'index.html',
+  path = local ? '.' : '/home/site/wwwroot';
+
+app.use('/', express.static(path, { index: indexFile }));
 app.get('/', (req, res) => {
-    return res.send('Welcome to Success Socket.IO');
+    res.sendFile(path + '/' + indexFile);
 });
 
 app.get('/check', (req, res) => {
@@ -16,40 +33,39 @@ app.get('/check', (req, res) => {
 });
 
 io.on("connection", socket => {
-  console.log("Connected")
-    socket.on("join room", roomID => {
-        console.log("Join room fired", roomID);
-        if (rooms[roomID]) {
-            console.log("Push")
-            rooms[roomID].push(socket.id);
-        } else {
-            console.log("Create")
-            rooms[roomID] = [socket.id];
+    console.log("Connected");
+
+    socket.on("hello", payload => {
+        console.log("Hello fired", payload);
+        if (!users[payload.fromSessionId]) {
+            users[payload.fromSessionId] = socket.id;
         }
-        const otherUser = rooms[roomID].find(id => id !== socket.id);
-        if (otherUser) {
-            console.log("Other user fired and user joined fired")
-            socket.emit("other user", otherUser);
-            socket.to(otherUser).emit("user joined", socket.id);
-        }
+        socket.join('users');
+        socket.broadcast.to('users').emit('hello', payload);
     });
 
     socket.on("offer", payload => {
-        console.log("Offer fired", payload)
-        io.to(payload.target).emit("offer", payload);
+        if (users[payload.target]) {
+            console.log("Offer fired", payload);
+            socket.to(users[payload.target]).emit("offer", payload);
+        }
     });
 
     socket.on("answer", payload => {
-        console.log("Answer fired", payload)
-        io.to(payload.target).emit("answer", payload);
+        if (users[payload.target]) {
+            console.log("Answer fired", payload);
+            socket.to(users[payload.target]).emit("answer", payload);
+        }
     });
 
     socket.on("ice-candidate", incoming => {
-        console.log("Ice candidate fired");
-        io.to(incoming.target).emit("ice-candidate", incoming.candidate);
+        if (users[incoming.target]) {
+            console.log("Ice candidate fired", incoming);
+            socket.to(users[incoming.target]).emit("ice-candidate", incoming);
+        }
     });
 });
 
 // Serve the website using Express
-server.listen(process.env.PORT);
-// server.listen(9999);
+// server.listen(process.env.PORT);
+server.listen(local ? 9999 : process.env.PORT);
