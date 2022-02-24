@@ -37,7 +37,7 @@ msgBufferInputEl.onkeydown = (ev) => {
   }
 };
 
-const socket = io("ws://" + window.location.host);
+const socket = io("https://" + window.location.host);
 
 function publishSignalingMsg(toSessionId, signalingMsg) {
   console.log("Sending to", toSessionId, ":", signalingMsg);
@@ -61,7 +61,6 @@ function newPeer(sessionId) {
   if (peers.has(sessionId)) {
     throw new Error(`Error: we already have a peer with sessionId ${sessionId}`);
   }
-  console.log('a1');
   const peerConn = newPeerConnection();
   peerConn.onconnectionstatechange = (ev) => {
     console.log("State of connection to ", sessionId, ":", peerConn.connectionState);
@@ -71,7 +70,6 @@ function newPeer(sessionId) {
       showPeers();
     }
   };
-  console.log('a2');
   peerConn.onicecandidate = (ev) => {
     if (ev.candidate !== null) {
       publishSignalingMsg(sessionId, {
@@ -81,7 +79,6 @@ function newPeer(sessionId) {
       });
     }
   };
-  console.log('a3');
   const peer = { id: sessionId, peerConn, iceCandidateBuffer: [], dataChannel: void 0 };
   peers.set(sessionId, peer);
   showPeers();
@@ -100,13 +97,9 @@ async function handleHello(remoteSessionId) {
   }
   console.log("Received hello from", remoteSessionId);
   const peer = newPeer(remoteSessionId);
-  console.log('b1');
   setUpDataChannel(peer.peerConn.createDataChannel("myDataChannel"), peer);
-  console.log('b2');
   const desc = await peer.peerConn.createOffer();
-  console.log('b3');
   await peer.peerConn.setLocalDescription(desc);
-  console.log('b4');
   publishSignalingMsg(remoteSessionId, {
     kind: "offer",
     fromSessionId: mySessionId,
@@ -135,19 +128,14 @@ async function handleSignalingMsgOffer(signalingMsgOffer) {
   const fromSessionId = signalingMsgOffer.fromSessionId;
   console.log("Received offer from", fromSessionId);
   const peer = getOrCreatePeer(fromSessionId);
-  console.log('1');
   if (peer.peerConn.remoteDescription) {
     console.warn("Received a second offer from the same peer", peer);
   }
-  console.log('2');
   peer.peerConn.ondatachannel = (dataChannelEv) => {
     setUpDataChannel(dataChannelEv.channel, peer);
   };
-  console.log('3');
   await setRemoteDescription(peer, signalingMsgOffer.offer);
-  console.log('4');
   const answerDesc = await peer.peerConn.createAnswer();
-  console.log('5');
   await peer.peerConn.setLocalDescription(answerDesc);
   publishSignalingMsg(signalingMsgOffer.fromSessionId, {
     kind: "answer",
@@ -167,9 +155,9 @@ async function handleSignalingMsgAnswer(signalingMsgAnswer) {
   if (peer.peerConn.remoteDescription) {
     console.warn("Received a second offer from the same peer", peer);
   }
-  console.log("Setting answer");
   await setRemoteDescription(peer, signalingMsgAnswer.answer);
 }
+
 async function handleSignalingMsgIceCandidate(signalingMsgIceCandidate) {
   if (signalingMsgIceCandidate.fromSessionId === mySessionId)
     return;
@@ -185,28 +173,6 @@ async function handleSignalingMsgIceCandidate(signalingMsgIceCandidate) {
 
 socket.on("connect", () => {
   console.log("Connected to Socket");
-  // await Promise.all([
-  //   ablyChatRoomHelloChannel.subscribe((ablyMessage) => {
-  //     if (!ablyMessage.data)
-  //       return;
-  //     const signalingMsg = ablyMessage.data;
-  //     handleHello(signalingMsg.fromSessionId);
-  //   }),
-  //   ablyMyPrivateChannel.subscribe((ablyMessage) => {
-  //     const signalingMsg = ablyMessage.data;
-  //     if (signalingMsg.kind === "offer") {
-  //       handleSignalingMsgOffer(signalingMsg);
-  //     } else if (signalingMsg.kind === "answer") {
-  //       handleSignalingMsgAnswer(signalingMsg);
-  //     } else if (signalingMsg.kind === "ice-candidate") {
-  //       handleSignalingMsgIceCandidate(signalingMsg);
-  //     } else {
-  //       assertUnreachable(signalingMsg);
-  //     }
-  //   })
-  // ]);
-  console.log("Subscribed to all channels");
-  // ablyChatRoomHelloChannel.publish("hello", msg);
 
   socket.on('offer', signalingMsg => {
     console.log("from offer", signalingMsg);
@@ -226,21 +192,9 @@ socket.on("connect", () => {
   const msg = {fromSessionId: mySessionId};
   console.log("Publishing hello", msg);
   socket.emit('hello', msg);
-
-  // or with emit() and custom event names
-  // socket.emit("salutations", "Hello!", { "mr": "john" }, Uint8Array.from([1, 2, 3, 4]));
 });
 
 socket.on('hello', signalingMsg => {
   console.log("from hello", signalingMsg);
   handleHello(signalingMsg.fromSessionId);
 });
-
-
-// ablyClient.connect();
-// ablyClient.connection.on("connected", async () => {
-  
-// });
-// ablyClient.connection.on("failed", () => {
-//   console.error("Ably connection failed");
-// });
